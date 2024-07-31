@@ -21,7 +21,7 @@ model = PaliGemmaForConditionalGeneration.from_pretrained(
     quantization_config=bnb_config,
     device_map="auto"
 )
-model.eval().to(device)
+model.eval()
 
 # Prepare dummy inputs for ONNX export
 dummy_input_ids = torch.randint(0, 30522, (1, 128)).to(device)  # Replace 30522 with the vocab size
