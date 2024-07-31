@@ -6,8 +6,8 @@ from transformers import PaliGemmaForConditionalGeneration, PaliGemmaProcessor, 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model_id = "model"
-model = PaliGemmaForConditionalGeneration.from_pretrained(model_id, torch_dtype=torch.bfloat16)
 processor = PaliGemmaProcessor.from_pretrained(model_id)
+
 
 bnb_config = BitsAndBytesConfig(
     load_in_4bit=True,
