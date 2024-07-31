@@ -3,41 +3,22 @@ import torch
 import torch.onnx
 from PIL import Image
 from torch2trt import TRTModule, torch2trt
-from transformers import PaliGemmaForConditionalGeneration, PaliGemmaProcessor, BitsAndBytesConfig
+from transformers import PaliGemmaForConditionalGeneration, PaliGemmaProcessor
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model_id = "model"
 
 print("Loading the pretrained model")
-bnb_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_quant_type="nf4",
-    bnb_4bit_compute_dtype=torch.bfloat16
-)
+model = PaliGemmaForConditionalGeneration.from_pretrained(model_id)
+model.eval().to(device)
 
-model = PaliGemmaForConditionalGeneration.from_pretrained(
-    model_id,
-    quantization_config=bnb_config,
-    device_map="auto"
-)
-model.eval()
-
-# Prepare dummy inputs for ONNX export
-dummy_input_ids = torch.randint(0, 30522, (1, 128)).to(device)  # Replace 30522 with the vocab size
-dummy_attention_mask = torch.ones_like(dummy_input_ids).to(device)
-dummy_pixel_values = torch.randn(1, 3, 224, 224).to(device)  # Assuming the image size is 224x224
+# Define a dummy input for ONNX export
+dummy_input = torch.randn(1, 3, 224, 224).to(device) 
 
 onnx_path = "model.onnx"
 print("Exporting the model to ONNX format")
-torch.onnx.export(
-    model, 
-    (dummy_input_ids, dummy_attention_mask, dummy_pixel_values), 
-    onnx_path, 
-    input_names=["input_ids", "attention_mask", "pixel_values"], 
-    output_names=["output"],
-    opset_version=11
-)
+torch.onnx.export(model, dummy_input, onnx_path, opset_version=11)
 
 # Load the ONNX model
 import onnx
@@ -46,7 +27,7 @@ onnx_model = onnx.load(onnx_path)
 
 # Convert the ONNX model to TensorRT
 print("Converting the ONNX model to TensorRT")
-model_trt = torch2trt(model, [dummy_input_ids, dummy_attention_mask, dummy_pixel_values], max_workspace_size=1<<25, fp16_mode=True)
+model_trt = torch2trt(model, [dummy_input], max_workspace_size=1<<25, fp16_mode=True)
 
 # Save the TensorRT model
 trt_path = 'model_trt.pth'
@@ -63,7 +44,7 @@ print("Loading the processor")
 processor = PaliGemmaProcessor.from_pretrained(model_id)
 
 def generate_caption(prompt, image_path):
-    raw_image = Image.open(image_path).convert("RGB")
+    raw_image = Image.open(image_path)
     inputs = processor(prompt, raw_image, return_tensors="pt").to(device)
     
     start_time = time.time()
