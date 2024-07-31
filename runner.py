@@ -21,7 +21,7 @@ model_4bit = PaliGemmaForConditionalGeneration.from_pretrained(
     model_id,
     quantization_config=bnb_config,
     device_map="auto"
-).to(device)
+)
 
 print("loading the processor")
 processor = PaliGemmaProcessor.from_pretrained(model_id)
