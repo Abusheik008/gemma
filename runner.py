@@ -13,12 +13,21 @@ print("Loading the pretrained model")
 model = PaliGemmaForConditionalGeneration.from_pretrained(model_id)
 model.eval().to(device)
 
-# Define a dummy input for ONNX export
-dummy_input = torch.randn(1, 3, 224, 224).to(device) 
+# Prepare dummy inputs for ONNX export
+# Ensure the dummy input matches the expected input format and type
+dummy_input_ids = torch.randint(0, 30522, (1, 128)).to(device)  # Replace 30522 with the vocab size
+dummy_attention_mask = torch.ones_like(dummy_input_ids).to(device)
 
 onnx_path = "model.onnx"
 print("Exporting the model to ONNX format")
-torch.onnx.export(model, dummy_input, onnx_path, opset_version=11)
+torch.onnx.export(
+    model, 
+    (dummy_input_ids, dummy_attention_mask), 
+    onnx_path, 
+    input_names=["input_ids", "attention_mask"], 
+    output_names=["output"],
+    opset_version=11
+)
 
 # Load the ONNX model
 import onnx
@@ -27,7 +36,7 @@ onnx_model = onnx.load(onnx_path)
 
 # Convert the ONNX model to TensorRT
 print("Converting the ONNX model to TensorRT")
-model_trt = torch2trt(model, [dummy_input], max_workspace_size=1<<25, fp16_mode=True)
+model_trt = torch2trt(model, [dummy_input_ids, dummy_attention_mask], max_workspace_size=1<<25, fp16_mode=True)
 
 # Save the TensorRT model
 trt_path = 'model_trt.pth'
