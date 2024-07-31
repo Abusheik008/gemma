@@ -1,46 +1,29 @@
 import time
 import torch
-import torch.onnx
 from PIL import Image
-from torch2trt import TRTModule, torch2trt
-from transformers import PaliGemmaForConditionalGeneration, PaliGemmaProcessor
+from transformers import PaliGemmaForConditionalGeneration, PaliGemmaProcessor, BitsAndBytesConfig
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model_id = "model"
 
+print("Planning to launch the model...")
+
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_compute_dtype=torch.bfloat16
+)
+
 print("Loading the pretrained model")
-model = PaliGemmaForConditionalGeneration.from_pretrained(model_id)
-model.eval().to(device)
 
-# Define a dummy input for ONNX export
-dummy_input = torch.randn(1, 3, 224, 224).to(device) 
+model_4bit = PaliGemmaForConditionalGeneration.from_pretrained(
+    model_id,
+    quantization_config=bnb_config,
+    device_map="auto"
+)
 
-onnx_path = "model.onnx"
-print("Exporting the model to ONNX format")
-torch.onnx.export(model, dummy_input, onnx_path, opset_version=11)
-
-# Load the ONNX model
-import onnx
-print("Loading the ONNX model")
-onnx_model = onnx.load(onnx_path)
-
-# Convert the ONNX model to TensorRT
-print("Converting the ONNX model to TensorRT")
-model_trt = torch2trt(model, [dummy_input], max_workspace_size=1<<25, fp16_mode=True)
-
-# Save the TensorRT model
-trt_path = 'model_trt.pth'
-print("Saving the TensorRT model")
-torch.save(model_trt.state_dict(), trt_path)
-
-# Load the TensorRT model
-print("Loading the TensorRT model")
-model_trt = TRTModule()
-model_trt.load_state_dict(torch.load(trt_path))
-model_trt.to(device)
-
-print("Loading the processor")
+print("loading the processor")
 processor = PaliGemmaProcessor.from_pretrained(model_id)
 
 def generate_caption(prompt, image_path):
@@ -49,7 +32,7 @@ def generate_caption(prompt, image_path):
     
     start_time = time.time()
     with torch.no_grad():  # Disable gradient calculation
-        output = model_trt.generate(**inputs, max_new_tokens=300)
+        output = model_4bit.generate(**inputs, max_new_tokens=300)
     elapsed_time = time.time() - start_time
 
     print(elapsed_time, "inference seconds")
