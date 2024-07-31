@@ -36,6 +36,7 @@ def main():
     print(caption)
 
     elapsed_time = time.time() - start_time
+    print(elapsed_time, "seconds")
     minutes, seconds = divmod(elapsed_time, 60)
     if minutes > 0:
         print(f"{int(minutes)} minutes and {int(seconds)} seconds")
