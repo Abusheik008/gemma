@@ -30,7 +30,7 @@ def main():
     start_time = time.time()
 
     prompt = "MORE_DETAILED_CAPTION"
-    image_file = "/content/drive/MyDrive/gemma/gemma/Beam_data/test1.jpeg"
+    image_file = "test1.jpeg"
     caption = generate_caption(prompt, image_file)
 
     print(caption)
